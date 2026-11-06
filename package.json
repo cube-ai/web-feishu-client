@@ -1,5 +1,6 @@
 {
   "name": "web-feishu-client",
+  "description": "定制化飞书Web客户端，远程接入 DSH 等远端智能体。",
   "version": "0.1.0",
   "type": "module",
   "author": "huolongshe",
