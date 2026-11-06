@@ -1,0 +1,35 @@
+{
+  "name": "web-feishu-client",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "「Web飞书客户端」是一个单用户、独立部署的飞书网页客户端。它通过飞书开放平台连接任意开通了飞书接入渠道的远端智能体（包含但不限于：DeepSeek Harness（DSH）、OpenClaw（龙虾）、WorkBuddy、WeKnora等等），让你在浏览器里使用飞书单聊的方式与远端智能体对话。",
+  "keywords": [
+    "web",
+    "feishu",
+    "client",
+    "agent"
+  ],
+  "author": "huolongshe",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @web-feishu-client/server --filter @web-feishu-client/web dev",
+    "dev:server": "pnpm --filter @web-feishu-client/server dev",
+    "dev:web": "pnpm --filter @web-feishu-client/web dev",
+    "build": "pnpm --filter @web-feishu-client/web build && pnpm --filter @web-feishu-client/server build",
+    "start": "node --env-file-if-exists=.env apps/server/dist/index.js",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://openi.pcl.ac.cn/dsh/web-feishu-client.git"
+  },
+  "homepage": "https://openi.pcl.ac.cn/dsh/web-feishu-client",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
