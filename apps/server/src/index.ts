@@ -73,8 +73,6 @@ function assertCsrf(req: FastifyRequest, session: SessionRow): void {
   if (req.headers['x-remote-feishu-client'] !== '1') throw new HttpError(403, '缺少客户端标识')
   const token = req.headers['x-csrf-token']
   if (typeof token !== 'string' || token !== session.csrf_token) throw new HttpError(403, 'CSRF 校验失败')
-  const origin = req.headers.origin
-  if (origin && !config.allowedOrigins.has(origin)) throw new HttpError(403, 'Origin 不在允许范围内')
 }
 
 function setSessionCookie(reply: FastifyReply, token: string): void {
@@ -89,6 +87,18 @@ function setSessionCookie(reply: FastifyReply, token: string): void {
 
 function clearSessionCookie(reply: FastifyReply): void {
   reply.clearCookie(config.cookieName, { path: '/' })
+}
+
+function normalizeOAuthBase(value: string | null): string {
+  if (!value) return ''
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return ''
+    if (url.username || url.password || url.search || url.hash) return ''
+    return `${url.origin}${url.pathname.replace(/\/+$/, '')}`
+  } catch {
+    return ''
+  }
 }
 
 function bodyOf(req: FastifyRequest): Record<string, unknown> {
@@ -179,7 +189,12 @@ app.get('/api/apps/:id/oauth/start', async (req, reply) => {
   const session = requireSession(req, reply)
   if (!session) return
   const { id } = req.params as { id: string }
-  return { ok: true, ...(await feishu.startOAuth(id)) }
+  const url = new URL(req.url ?? '/', 'http://localhost')
+  const requestedBase = url.searchParams.get('base') ?? url.searchParams.get('origin') ?? ''
+  const pageBase = normalizeOAuthBase(requestedBase)
+    || normalizeOAuthBase(config.publicBaseUrl)
+  if (!pageBase) throw new HttpError(400, '无法确定 OAuth 回调地址')
+  return { ok: true, ...(await feishu.startOAuth(id, pageBase)) }
 })
 
 app.get('/api/oauth/callback', async (req, reply) => {

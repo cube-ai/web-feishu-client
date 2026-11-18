@@ -72,11 +72,16 @@ export function openDatabase(file: string): DatabaseSync {
     );
 
     CREATE TABLE IF NOT EXISTS oauth_states (
-      state_hash TEXT PRIMARY KEY,
-      app_id     TEXT NOT NULL,
-      expires_at TEXT NOT NULL
+      state_hash   TEXT PRIMARY KEY,
+      app_id       TEXT NOT NULL,
+      expires_at   TEXT NOT NULL,
+      redirect_uri TEXT
     );
   `)
+  const oauthColumns = db.prepare('PRAGMA table_info(oauth_states)').all() as Array<{ name?: string }>
+  if (!oauthColumns.some((column) => column.name === 'redirect_uri')) {
+    db.exec('ALTER TABLE oauth_states ADD COLUMN redirect_uri TEXT')
+  }
   try { chmodSync(file, 0o600) } catch {}
   return db
 }

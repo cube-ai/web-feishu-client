@@ -2803,3 +2803,17 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Embedded full-screen app: give the document a stable height so a parent's
+   iframe-body.scrollHeight auto-resize is not trapped at the iframe's
+   current viewport height. */
+html.is-embedded,
+html.is-embedded body,
+html.is-embedded #root {
+  min-height: var(--embed-height, 760px);
+}
+html.is-embedded .workspace,
+html.is-embedded .auth-page,
+html.is-embedded .splash {
+  min-height: var(--embed-height, 760px);
+}

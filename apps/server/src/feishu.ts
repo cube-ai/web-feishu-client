@@ -273,16 +273,16 @@ export class FeishuService {
     private readonly secrets: SecretStore,
   ) { }
 
-  async startOAuth(appId: string): Promise<{ url: string; redirectUri: string }> {
+  async startOAuth(appId: string, base: string): Promise<{ url: string; redirectUri: string }> {
     const app = this.app(appId)
     const secret = this.secret(app, app.app_secret_ref)
     void secret
-    const redirectUri = `${config.publicBaseUrl}/api/oauth/callback`
+    const redirectUri = `${base.replace(/\/+$/, '')}/api/oauth/callback`
     const state = randomBytes(24).toString('base64url')
     const expiresAt = new Date(Date.now() + STATE_TTL_MS).toISOString()
     this.cleanupStates()
-    this.db.prepare('INSERT INTO oauth_states (state_hash, app_id, expires_at) VALUES (?, ?, ?)')
-      .run(hashState(state), app.id, expiresAt)
+    this.db.prepare('INSERT INTO oauth_states (state_hash, app_id, expires_at, redirect_uri) VALUES (?, ?, ?, ?)')
+      .run(hashState(state), app.id, expiresAt, redirectUri)
     const query = new URLSearchParams({
       client_id: app.app_id,
       response_type: 'code',
@@ -300,8 +300,8 @@ export class FeishuService {
   async handleCallback(url: URL): Promise<{ ok: boolean; message: string; appId?: string; warning?: string; html: string }> {
     const state = url.searchParams.get('state') ?? ''
     const row = state
-      ? this.db.prepare('SELECT state_hash, app_id, expires_at FROM oauth_states WHERE state_hash = ?')
-        .get(hashState(state)) as { state_hash: string; app_id: string; expires_at: string } | undefined
+      ? this.db.prepare('SELECT state_hash, app_id, expires_at, redirect_uri FROM oauth_states WHERE state_hash = ?')
+        .get(hashState(state)) as { state_hash: string; app_id: string; expires_at: string; redirect_uri: string | null } | undefined
       : undefined
     if (state) this.db.prepare('DELETE FROM oauth_states WHERE state_hash = ?').run(hashState(state))
     if (!row || new Date(row.expires_at).getTime() <= Date.now()) {
@@ -324,7 +324,7 @@ export class FeishuService {
         client_id: app.app_id,
         client_secret: secret,
         code,
-        redirect_uri: `${config.publicBaseUrl}/api/oauth/callback`,
+        redirect_uri: row.redirect_uri || `${config.publicBaseUrl}/api/oauth/callback`,
       })
       // 不要在绑定单聊前先把 authorized=true 写进数据库。否则前端轮询会看到
       // “已授权但 chatId 为空”的中间态，提前停在设置页，等刷新后才看到绑定结果。

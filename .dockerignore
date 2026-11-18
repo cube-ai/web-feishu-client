@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+.env.local
+node_modules
+apps/*/node_modules
+apps/*/dist
+data
+*.log
+*.tsbuildinfo
+.DS_Store

@@ -14,7 +14,8 @@
     "dev:web": "pnpm --filter @web-feishu-client/web dev",
     "build": "pnpm --filter @web-feishu-client/web build && pnpm --filter @web-feishu-client/server build",
     "start": "node --env-file-if-exists=.env apps/server/dist/index.js",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "release": "pnpm build && node scripts/package-release.mjs"
   },
   "license": "Apache-2.0",
   "homepage": "https://openi.pcl.ac.cn/dsh/web-feishu-client"

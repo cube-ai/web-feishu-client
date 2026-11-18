@@ -26,7 +26,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { ApiError, api, type AppItem, type ChatAttachment, type ChatMessage } from './api'
+import { ApiError, api, apiUrl, type AppItem, type ChatAttachment, type ChatMessage } from './api'
 import { normalizeMarkdown } from './markdown'
 import './styles.css'
 
@@ -34,8 +34,32 @@ type View = 'empty' | 'new' | 'app' | 'chat'
 
 const chatMessagesCache = new Map<string, ChatMessage[]>()
 
+const APP_BASE_PATH = (() => {
+  if (typeof window === 'undefined') return '/'
+  const path = window.location.pathname
+  if (path.endsWith('/')) return path
+  const slash = path.lastIndexOf('/')
+  return slash >= 0 ? path.slice(0, slash + 1) : '/'
+})()
+
+function browserPageBase(): string {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return ''
+  const fallback = window.location.origin
+  try {
+    const injected = (window as Window & { __WEB_FEISHU_CLIENT_BASE__?: string }).__WEB_FEISHU_CLIENT_BASE__
+    const raw = injected || document.baseURI || fallback
+    const parsed = new URL(raw, fallback)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return fallback
+    return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`
+  } catch {
+    return fallback
+  }
+}
+
 function setPath(path: string): void {
-  if (window.location.pathname !== path) window.history.replaceState({}, '', path)
+  const relative = path.replace(/^\/+/, '')
+  const next = relative ? `${APP_BASE_PATH}${relative}` : APP_BASE_PATH
+  if (window.location.pathname !== next) window.history.replaceState({}, '', next)
 }
 
 function messageOf(error: unknown): string {
@@ -645,7 +669,7 @@ function attachmentUrl(appId: string, message: ChatMessage, attachment: ChatAtta
   const query = new URLSearchParams({ type: attachment.resourceType })
   if (download) query.set('download', '1')
   if (attachment.name) query.set('name', attachment.name)
-  return `/api/apps/${encodeURIComponent(appId)}/messages/${encodeURIComponent(message.id)}/resources/${encodeURIComponent(attachment.fileKey)}?${query.toString()}`
+  return apiUrl(`/apps/${encodeURIComponent(appId)}/messages/${encodeURIComponent(message.id)}/resources/${encodeURIComponent(attachment.fileKey)}?${query.toString()}`)
 }
 
 function MessageAttachments({
@@ -1312,7 +1336,7 @@ export default function App() {
   const [authorizingId, setAuthorizingId] = useState('')
   const [bindingId, setBindingId] = useState('')
   const [testingId, setTestingId] = useState('')
-  const [redirectUri, setRedirectUri] = useState(() => `${window.location.origin}/api/oauth/callback`)
+  const [redirectUri, setRedirectUri] = useState(() => `${browserPageBase()}/api/oauth/callback`)
 
   const selectedApp = apps.find((app) => app.id === selectedId)
 
@@ -1518,7 +1542,7 @@ export default function App() {
     setAuthorizingId(selectedApp.id)
     setError('')
     try {
-      const start = await api.oauthStart(selectedApp.id)
+      const start = await api.oauthStart(selectedApp.id, browserPageBase())
       setRedirectUri(start.redirectUri)
       const popup = window.open(
         start.url,

@@ -60,6 +60,20 @@ export function setCsrfToken(token: string): void {
   csrfToken = token
 }
 
+const API_BASE = (() => {
+  if (typeof document === 'undefined') return '/api'
+  try {
+    const url = new URL('api', document.baseURI)
+    return url.pathname.replace(/\/+$/, '') || '/api'
+  } catch {
+    return '/api'
+  }
+})()
+
+export function apiUrl(path: string): string {
+  return `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers)
   headers.set('x-remote-feishu-client', '1')
@@ -68,7 +82,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   let response: Response
   try {
-    response = await fetch(`/api${path}`, {
+    response = await fetch(apiUrl(path), {
       cache: 'no-store',
       ...options,
       headers,
@@ -128,7 +142,7 @@ export const api = {
     return data.app
   },
   deleteApp: (id: string) => request<{ ok: true }>(`/apps/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  oauthStart: (id: string) => request<{ url: string; redirectUri: string }>(`/apps/${encodeURIComponent(id)}/oauth/start`),
+  oauthStart: (id: string, base: string) => request<{ url: string; redirectUri: string }>(`/apps/${encodeURIComponent(id)}/oauth/start?base=${encodeURIComponent(base)}`),
   discoverChat: async (id: string) => {
     const data = await request<{ app: AppItem }>(`/apps/${encodeURIComponent(id)}/discover`, { method: 'POST' })
     return data.app
@@ -157,7 +171,7 @@ export const api = {
     })
     let response: Response
     try {
-      response = await fetch(`/api/apps/${encodeURIComponent(id)}/media?kind=${kind}&name=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(file.type || 'application/octet-stream')}`, {
+      response = await fetch(apiUrl(`/apps/${encodeURIComponent(id)}/media?kind=${kind}&name=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(file.type || 'application/octet-stream')}`), {
         method: 'POST',
         headers,
         body: file,

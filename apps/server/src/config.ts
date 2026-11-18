@@ -28,10 +28,4 @@ export const config = {
   setupTokenPath: resolve(dataDir, 'setup-token.txt'),
   masterKeyPath: resolve(dataDir, 'master.key'),
   cookieName: 'rdf_session',
-  allowedOrigins: new Set([
-    publicBaseUrl,
-    ...(process.env.NODE_ENV === 'production'
-      ? []
-      : ['http://127.0.0.1:8731', 'http://localhost:8731', 'http://127.0.0.1:5173', 'http://localhost:5173']),
-  ]),
 }

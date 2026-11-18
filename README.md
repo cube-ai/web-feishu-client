@@ -311,7 +311,7 @@ NODE_ENV=production
 APP_SECRET_KEY=请替换为32字节base64
 ```
 
-`PUBLIC_BASE_URL` 必须与飞书后台重定向 URL 的域名和协议完全一致。
+`PUBLIC_BASE_URL` 用于 HTTPS/安全 Cookie 判断；OAuth 回调现在按浏览器当前页面 base（含路径前缀）拼接，飞书后台要登记实际访问地址。
 
 ### 8.2 Nginx 示例
 
@@ -364,6 +364,119 @@ pnpm start
 ```
 
 ---
+
+### 8.5 可分发发布包
+
+仓库提供发布打包脚本：
+
+```bash
+pnpm release
+# 等价于 pnpm build && node scripts/package-release.mjs
+```
+
+输出：
+
+```text
+dist-release/web-feishu-client-0.1.0/
+```
+
+发布目录只包含编译后的服务端、前端静态文件、生产依赖声明和运行说明，不再需要
+pnpm、Vite 或 TypeScript。目标机器执行：
+
+```bash
+npm install --omit=dev
+cp .env.example .env
+# 修改 HOST、PORT、PUBLIC_BASE_URL、DATA_DIR
+npm start
+```
+
+数据目录默认是 `~/.web-feishu-client`，包含：
+
+```text
+app.db            机器人、管理员会话、OAuth state
+master.key        凭据加密密钥
+setup-token.txt   首次启动的管理员设置 token
+```
+
+首次启动后，用 `setup-token.txt` 里的 token 在浏览器设置管理员密码。迁移已有数据
+时，请把 `app.db`、`master.key`、`setup-token.txt` 一起复制。
+
+### 8.6 Docker
+
+Docker 采用「宿主机编译 + 容器运行」方式，只生成 `latest` 标签：
+
+```bash
+bash scripts/build-docker-image.sh
+# Windows: scripts\build-docker-image.bat
+```
+
+镜像：
+
+```text
+web-feishu-client:latest
+```
+
+运行（需要持久化管理员和机器人数据，所以挂载数据卷）：
+
+```bash
+docker run --rm -p 8731:8731 \
+  -v web-feishu-data:/app/data \
+  --name web-feishu-client \
+  web-feishu-client:latest
+```
+
+首次启动读取设置 token：
+
+```bash
+docker exec web-feishu-client cat /app/data/setup-token.txt
+```
+
+默认 `PUBLIC_BASE_URL=http://127.0.0.1:8731`。浏览器请用 `127.0.0.1` 访问，或者
+按实际地址覆盖：
+
+```bash
+-e PUBLIC_BASE_URL=http://localhost:8731
+# 或
+-e PUBLIC_BASE_URL=https://feishu.example.com
+```
+
+`PUBLIC_BASE_URL` 用于 HTTPS/安全 Cookie 判断。OAuth 回调仍按浏览器当前页面
+base 拼接，飞书后台登记实际地址即可。
+
+### 8.7 子路径与 iframe
+
+前端使用 Vite 相对资源路径（`base: './'`），API、媒体资源和 OAuth 地址都从当前
+页面 base 计算，可以挂在真实子路径下：
+
+```text
+https://example.com/prefix/
+```
+
+Nginx 示例：
+
+```nginx
+location /prefix/ {
+    proxy_pass http://127.0.0.1:8731/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+`location` 和 `proxy_pass` 都需要尾部 `/`：
+
+- `/prefix/assets/...` 转发到应用的 `/assets/...`；
+- `/prefix/api/...` 转发到应用的 `/api/...`；
+- OAuth 回调为 `https://example.com/prefix/api/oauth/callback`。
+
+`PUBLIC_BASE_URL` 现在只用于 HTTPS/安全 Cookie 判断，不再校验请求 Origin；
+OAuth 回调仍按页面 base 拼接。
+
+iframe 嵌入时，客户端会检测 `window.self !== window.top`，按父页面视口给
+`html/body/#root/.workspace/.auth-page` 一个 720–920px 的稳定高度，并同步父
+iframe 的高度。这样平台原来的 `body.scrollHeight` 自适应逻辑也不会卡在 iframe
+初始高度。应用内部仍保持自己的滚动区域。
 
 ## 9. 常见问题
 
